@@ -1,4 +1,5 @@
-// backend/index.js
+// backend/api/index.js
+
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -11,87 +12,89 @@ require('dotenv').config();
 const app = express();
 const server = http.createServer(app);
 
+// --- CORS Configuration for Vercel ---
+// VERCEL_URL is a system environment variable provided by Vercel
 const FRONTEND_URL = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
-
-const allowedOrigins = [
-    'http://localhost:3000',
-    FRONTEND_URL
-];
+const allowedOrigins = ['http://localhost:3000', FRONTEND_URL];
 
 const corsOptions = {
     origin: function (origin, callback) {
-        // Izinkan permintaan tanpa origin (misal: dari aplikasi seluler, Postman, file://)
-        // ATAU izinkan jika origin ada dalam daftar allowedOrigins
         if (!origin || allowedOrigins.indexOf(origin) !== -1) {
             callback(null, true);
         } else {
-            callback(new Error(`Not allowed by CORS: ${origin}`)); // Beri info origin yang ditolak
+            callback(new Error(`Not allowed by CORS: ${origin}`));
         }
     },
-    credentials: true, // INI PENTING: Izinkan pengiriman cookies dan header otorisasi
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], // Tambahkan metode yang diperlukan
-    allowedHeaders: ['Content-Type', 'Authorization'], // Header yang diizinkan
+    credentials: true,
 };
 
+app.use(cors(corsOptions));
+
+// --- Middleware Setup (MUST be before routes) ---
+app.use(cookieParser());
+app.use(express.json()); // Essential for parsing POST request bodies
+
+// Serve static files from a 'public' or 'uploads' folder if needed
+// Note: Vercel's ephemeral filesystem means uploaded files are not permanent
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+
+// --- Database Connection ---
+// Ensure the connection is established only once
+if (!mongoose.connection.readyState) {
+    mongoose.connect(process.env.MONGO_URI)
+        .then(() => console.log('Connected to MongoDB Atlas'))
+        .catch(err => console.error('Failed to connect to MongoDB:', err));
+}
+
+// --- Route Definitions ---
+// Corrected paths relative to this file's location inside 'api'
+const authRoutes = require('./routes/auth');
+const tugasRoutes = require('./routes/tugas');
+const kuisRoutes = require('./routes/kuis');
+const mahasiswaRoutes = require('./routes/mahasiswa');
+const matakuliahRoutes = require('./routes/matakuliah');
+const userRoutes = require('./routes/user');
+const adminRoutes = require('./routes/admin');
+
+// Apply routes with the '/api' prefix
+app.use('/api/auth', authRoutes);
+app.use('/api/tugas', tugasRoutes);
+app.use('/api/kuis', kuisRoutes);
+app.use('/api/mahasiswa', mahasiswaRoutes);
+app.use('/api/matakuliah', matakuliahRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/admin', adminRoutes);
+
+// --- Socket.IO Setup (Vercel does not support traditional WebSockets on the Hobby plan) ---
+// This setup might not work as expected on Vercel's free tier.
+// Long-polling will be used as a fallback.
 const io = new Server(server, {
-    cors: corsOptions // Konfigurasi CORS untuk Socket.IO
+    cors: corsOptions,
+    path: "/socket.io" // Important for Vercel routing
 });
 
-app.use(cors(corsOptions)); // Konfigurasi CORS untuk Express HTTP routes
-app.use(cookieParser()); // Middleware untuk parse cookies
-app.use(express.json()); // Middleware untuk parse body JSON
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log('Terhubung ke MongoDB Atlas'))
-    .catch(err => console.error('Gagal terhubung ke MongoDB:', err));
-
-// Routes
-// app.use('/api/auth', require('./routes/auth')); // Contoh rute autentikasi
-// Pastikan rute ini dimuat setelah CORS dan cookieParser
-const authRoutes = require('./routes/auth');
-app.use('/api/auth', authRoutes); // Pastikan ini adalah prefix rute /api/auth
-
-app.use('/api/tugas', require('./routes/tugas'));
-app.use('/api/kuis', require('./routes/kuis'));
-app.use('/api/mahasiswa', require('./routes/mahasiswa'));
-app.use('/api/matakuliah', require('./routes/matakuliah'));
-app.use('/api/users', require('./routes/user'));
-app.use('/api/admin', require('./routes/admin'));
-
-// Socket.IO Connection
 io.on('connection', (socket) => {
-    console.log('Pengguna terhubung:', socket.id);
-
+    console.log('User connected via Socket.IO:', socket.id);
     socket.on('joinRoom', (roomId) => {
         socket.join(roomId);
         console.log(`User ${socket.id} joined room ${roomId}`);
     });
-
-    socket.on('leaveRoom', (roomId) => {
-        socket.leave(roomId);
-        console.log(`User ${socket.id} left room ${roomId}`);
-    });
-
-    socket.on('joinCourseRoom', (courseId) => {
-        socket.join(courseId);
-        console.log(`User ${socket.id} joined course room ${courseId}`);
-    });
-
-    socket.on('leaveCourseRoom', (courseId) => {
-        socket.leave(courseId);
-        console.log(`User ${socket.id} left course room ${courseId}`);
-    });
-
+    // Add other event listeners here
     socket.on('disconnect', () => {
-        console.log('Pengguna terputus:', socket.id);
+        console.log('User disconnected:', socket.id);
     });
 });
 
-app.set('socketio', io); // Set io instance ke app object
+app.set('socketio', io);
 
-const PORT = process.env.PORT || 5000;
-// server.listen(PORT, 'localhost', () => { // Hapus 'localhost' jika Anda ingin server bisa diakses dari IP lain di jaringan lokal
-server.listen(PORT, () => { // Lebih fleksibel, akan mendengarkan di semua interface
-    console.log(`Server berjalan di http://localhost:${PORT}`);
-});
+// This part is for local development. Vercel handles the server lifecycle.
+if (process.env.NODE_ENV !== 'production') {
+    const PORT = process.env.PORT || 5000;
+    server.listen(PORT, '0.0.0.0', () => {
+        console.log(`Server running locally on http://localhost:${PORT}`);
+    });
+}
+
+// --- EXPORT FOR VERCEL ---
+// This is the most crucial part for Vercel to handle all requests.
+module.exports = app;
