@@ -3,8 +3,8 @@ const express = require('express');
 const router = express.Router();
 const {
     register, login, refresh, logout, forgotPassword, resetPassword, me
-} = require('../controllers/authController');
-const { protect } = require('../middleware/authMiddleware');
+} = require('../api/controllers/authController');
+const { protect } = require('../api/middleware/authMiddleware');
 
 router.post('/register', register);
 router.post('/login', login);

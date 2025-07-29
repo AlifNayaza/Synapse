@@ -1,11 +1,11 @@
-const User = require('../models/User');
+const User = require('../api/models/User');
 const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
-const MataKuliah = require('../models/MataKuliah');
-const Tugas = require('../models/Tugas');
-const Kuis = require('../models/Kuis');
-const Submission = require('../models/Submission');
+const MataKuliah = require('../api/models/MataKuliah');
+const Tugas = require('../api/models/Tugas');
+const Kuis = require('../api/models/Kuis');
+const Submission = require('../api/models/Submission');
 
 // Admin: Membuat akun Dosen baru
 exports.createDosen = async (req, res) => {

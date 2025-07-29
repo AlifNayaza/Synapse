@@ -11,8 +11,11 @@ require('dotenv').config();
 const app = express();
 const server = http.createServer(app);
 
+const FRONTEND_URL = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
+
 const allowedOrigins = [
-    'http://localhost:3000', // Frontend URL
+    'http://localhost:3000',
+    FRONTEND_URL
 ];
 
 const corsOptions = {

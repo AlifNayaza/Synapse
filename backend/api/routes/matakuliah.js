@@ -2,7 +2,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { protect, isDosen } = require('../middleware/authMiddleware');
+const { protect, isDosen } = require('../api/middleware/authMiddleware');
 const { 
     createMataKuliah, 
     getAllMataKuliah,
@@ -13,7 +13,7 @@ const {
     unenrollMahasiswa,
     updateMataKuliahByDosen,
     getAllSubmissionsByMataKuliah
-} = require('../controllers/matakuliahController');
+} = require('../api/controllers/matakuliahController');
 
 // Rute statis harus di atas rute dinamis '/:id'
 router.get('/', protect, getAllMataKuliah);
