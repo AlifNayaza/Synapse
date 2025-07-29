@@ -135,17 +135,44 @@ function AppLayout({ socket }) {
 // Komponen AppContent dan AppWrapper tidak perlu diubah secara signifikan,
 // tetapi kita akan merapikannya sedikit.
 const AppContent = () => {
-    // Logika socket tetap di sini
-    const socket = useMemo(() => io('http://localhost:5000', {
-        auth: { token: localStorage.getItem('token') }
-    }), []);
+    const { user } = useContext(AuthContext);
+
+    // Tentukan URL Socket.IO secara dinamis
+    const socketURL = process.env.NODE_ENV === 'production' 
+        ? window.location.origin // Gunakan domain yang sama di produksi (Vercel)
+        : 'http://localhost:5000'; // Gunakan localhost di development
+    
+    const socket = useMemo(() => io(socketURL, {
+        // `path` diperlukan agar Vercel mengarahkan request ke serverless function yang benar
+        path: "/socket.io",
+        // Opsi ini akan membuat koneksi tidak langsung dibuat, kita kontrol manual
+        autoConnect: false, 
+        auth: { token: localStorage.getItem('accessToken') }
+    }), [socketURL]);
 
     useEffect(() => {
-        if (!socket.connected) socket.connect();
-        return () => { socket.disconnect(); };
-    }, [socket]);
+        if (user) {
+            // Perbarui token otentikasi socket setiap kali user berubah (misal, setelah refresh)
+            socket.auth.token = localStorage.getItem('accessToken');
+            // Hanya sambungkan jika ada user dan belum tersambung
+            if (!socket.connected) {
+                socket.connect();
+            }
+        } else {
+            // Putuskan koneksi jika tidak ada user (logout)
+            if (socket.connected) {
+                socket.disconnect();
+            }
+        }
+        
+        // Fungsi cleanup
+        return () => {
+            if (socket.connected) {
+                socket.disconnect();
+            }
+        };
+    }, [user, socket]);
 
-    // Kita akan menggunakan Router di sini agar AppLayout bisa memakai useLocation
     return (
         <Router>
             <AppLayout socket={socket} />
