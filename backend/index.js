@@ -13,7 +13,6 @@ const server = http.createServer(app);
 
 const allowedOrigins = [
     'http://localhost:3000', // Frontend URL
-    // 'http://localhost:5000' // Ini tidak perlu di allowedOrigins jika backend tidak diakses langsung dari browser di port 5000, kecuali untuk keperluan debugging API secara langsung.
 ];
 
 const corsOptions = {
